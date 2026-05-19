@@ -24,6 +24,7 @@ from vllm.distributed.kv_transfer import (
 from vllm.distributed.kv_transfer.kv_connector.base import KVConnectorBase
 from vllm.forward_context import get_forward_context, set_forward_context
 from vllm.logger import init_logger
+from vllm.utils.npu_freq import set_npu_low_freq
 from vllm.v1.kv_cache_interface import AttentionSpec, KVCacheConfig
 from vllm.v1.outputs import (
     EMPTY_MODEL_RUNNER_OUTPUT,
@@ -44,6 +45,7 @@ class KVConnectorModelRunnerMixin:
     def maybe_setup_kv_connector(scheduler_output: "SchedulerOutput"):
         # Update KVConnector with the KVConnector metadata forward().
         if has_kv_transfer_group():
+            set_npu_low_freq()
             kv_connector = get_kv_transfer_group()
             assert isinstance(kv_connector, KVConnectorBase)
             assert scheduler_output.kv_connector_metadata is not None
@@ -64,6 +66,7 @@ class KVConnectorModelRunnerMixin:
     @staticmethod
     def maybe_wait_for_kv_save() -> None:
         if has_kv_transfer_group():
+            set_npu_low_freq()
             get_kv_transfer_group().wait_for_save()
 
     @staticmethod
@@ -80,6 +83,7 @@ class KVConnectorModelRunnerMixin:
     def kv_connector_no_forward(
         scheduler_output: "SchedulerOutput", vllm_config: VllmConfig
     ) -> ModelRunnerOutput:
+        set_npu_low_freq()
         # KV send/recv even if no work to do.
         with (
             set_forward_context(None, vllm_config),
@@ -116,6 +120,7 @@ class KVConnectorModelRunnerMixin:
         output = KVConnectorOutput()
 
         # Update KVConnector with the KVConnector metadata forward().
+        set_npu_low_freq()
         kv_connector = get_kv_transfer_group()
         assert isinstance(kv_connector, KVConnectorBase)
         assert scheduler_output.kv_connector_metadata is not None
@@ -130,6 +135,7 @@ class KVConnectorModelRunnerMixin:
             yield output
         finally:
             if wait_for_save:
+                set_npu_low_freq()
                 kv_connector.wait_for_save()
 
             output.finished_sending, output.finished_recving = (
